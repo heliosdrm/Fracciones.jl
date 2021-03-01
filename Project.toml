@@ -1,0 +1,7 @@
+name = "Fracciones"
+uuid = "81451a68-6ad1-41c9-8c04-09494141aeca"
+authors = ["meliana "]
+version = "0.1.0"
+
+[deps]
+MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"

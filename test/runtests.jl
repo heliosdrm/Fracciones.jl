@@ -15,6 +15,10 @@ using Test, Fracciones
     @test Fraccion{UInt8}(Fraccion(1,2)) === Fraccion(0x01, 0x02)
     @test Fraccion(0) === Fraccion(0,1)
     @test Fraccion(2) === Fraccion(2,1)
+    @test Fraccion{UInt8}(2.0) === Fraccion(0x02,0x01)
+    @test Fraccion(2.0) === Fraccion(2,1)
+    @test Fraccion(Inf) === Fraccion(1,0)
+    @test Fraccion(-Inf) === Fraccion(-1,0)
     @test Fraccion(1,2) === Fraccion(Fraccion(1,2))
 end
 

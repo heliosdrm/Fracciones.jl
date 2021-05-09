@@ -46,7 +46,7 @@ struct Fraccion{T<:Integer} <: Real
         num = div(num, mcd)
         den = div(den, mcd)
         # fracciones con typemin(T) no permitidas
-        if T<:Signed && (num === typemin(T) || den === typemin(T))
+        if T<:Signed && !(T === BigInt) && (num === typemin(T) || den === typemin(T))
             throw(ArgumentError("fracción inválida: no se puede usar typemin($T)"))
         end
         # denominador negativo
@@ -64,13 +64,45 @@ function Fraccion(num::N, den::D) where {N<:Integer, D<:Integer}
     Fraccion{T}(num, den)
 end
 
+# Constructores con un solo argumento
+# enteros
+Fraccion(x::T) where {T<:Integer} = Fraccion(x, one(T))
+Fraccion{T}(x::Tx) where {T, Tx<:Integer} = Fraccion{T}(x, one(Tx))
+# fracciones
+Fraccion(x::Fraccion) = x
+Fraccion{T}(x::Fraccion{T}) where T = x # evitar ambiguedad con T(x::T) where {T<:Number}
+Fraccion{T}(x::Fraccion) where T = Fraccion{T}(x.num, x.den)
+# otros reales
+function Fraccion{T}(x::R) where {T, R<:Real}
+    if iszero(rem(x, one(R)))
+        return Fraccion{T}(T(x), one(T))
+    elseif isinf(x)
+        return Fraccion{T}(T(sign(x))*one(T), zero(T))
+    else
+        throw(InexactError(nameof(T), T, x))
+    end
+end
+Fraccion(x::Real) = Fraccion{Int}(x)
+
+# Constructores de otros tipos
+function (::Type{T})(x::Fraccion) where {T<:Integer}
+    if x.den == 1
+        return T(x.num)
+    else
+        throw(InexactError(nameof(T), T, x))
+    end
+end
+
+function (::Type{T})(x::Fraccion) where {T<:AbstractFloat}
+    T(x.num / x.den)
+end
+
 """
     numerador(x)
     
 Extrae el numerador de `x`.
 """
-numerador(x::Fraccion)   = x.num
-numerador(x::Integer) = x
+numerador(x::Fraccion) = x.num
 
 """
     denominador(x)
@@ -78,35 +110,21 @@ numerador(x::Integer) = x
 Extrae el denominador de `x`.
 """
 denominador(x::Fraccion) = x.den
-denominador(x::T) where {T<:Integer} = one(T)
-
-# Constructores con un solo argumento
-Fraccion{T}(x) where T = Fraccion{T}(numerador(x), denominador(x))
-Fraccion(x) = Fraccion(numerador(x), denominador(x))
-Fraccion{T}(x::Fraccion{T}) where T = x # evitar ambiguedad con T(x::T) where {T<:Number}
-Fraccion(x::Fraccion) = x
-
-# Constructores de otros tipos
-function (::Type{T})(x::Fraccion) where {T<:Integer}
-    if x.den == 1
-        convert(T, x.num)
-    else
-        throw(InexactError(nameof(T), T, x))
-    end
-end
-
-function (::Type{T})(x::Fraccion{S}) where {T<:AbstractFloat, S}
-    P = promote_type(T, S)
-    convert(T, convert(P,x.num)/convert(P,x.den))
-end
 
 # Reglas de promoción
-Base.promote_rule(::Type{Fraccion{T}}, ::Type{<:Integer}) where T = Fraccion{T}
-Base.promote_rule(::Type{<:Fraccion}, ::Type{T}) where {T<:AbstractFloat} = T
+Base.promote_rule(::Type{Fraccion{T}}, ::Type{R}) where {T, R<:Real} = R
+
+function Base.promote_rule(::Type{Fraccion{T1}}, ::Type{T2}) where {T1<:Integer, T2<:Integer}
+    T = promote_type(T1, T2)
+    Fraccion{T}
+end
 
 # Representación
-Base.show(io::IO, x::Fraccion) = print(io, "Fraccion($(x.num), $(x.den))")
+Base.show(io::IO, x::Fraccion) = print(io, "Fraccion($(repr(x.num)), $(repr(x.den)))")
 
+function Base.show(io::IO, ::MIME"text/html", x::Fraccion)
+    print(io, "<sup>$(x.num)</sup>&frasl;<sub>$(x.den)</sub>")
+end
 
 # Propiedades y funciones numéricas elementales
 Base.sign(x::Fraccion) = sign(x.num)
@@ -136,7 +154,7 @@ function Base.:+(x::Fraccion{Tx}, y::Fraccion{Ty}) where {Tx<:Integer, Ty<:Integ
             throw(ArgumentError("resultado indefinido"))
         else
             T = promote_type(Tx, Ty)
-            return Fraccion(x.num * y.num, zero(T))
+            return Fraccion(x.num, zero(T))
         end
     end
     mcd = gcd(x.den, y.den)
@@ -191,6 +209,8 @@ Crea una fracción equivalente a dividir `x` entre `y`.
 
 Los valores introducidos han de ser interpretables como números enteros o fracciones.
 
+# Ejemplo
+
 ```jldoctest
 julia> fraccion(Fraccion(5,2), 3)
 Fraccion(5, 6)
@@ -205,6 +225,8 @@ Crea una fracción equivalente la expresión `x/y`.
 
 Si las partes de la expresión `x` e `y` contienen otras divisiones,
 estas se interpretan también como fracciones.
+
+# Ejemplo
 
 ```jldoctest
 julia> @fraccion (1+(5/2))/3

@@ -237,11 +237,11 @@ macro fraccion(ex)
     MacroTools.postwalk(ex) do subex
         hayfraccion = @capture(subex, num_ / den_)
         if hayfraccion
-            return :(fraccion($num, $den))
+            return :(Fracciones.fraccion($num, $den))
         else
             return subex
         end
-    end
+    end |> esc
 end
 
 
